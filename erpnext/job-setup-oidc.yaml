@@ -133,4 +133,6 @@ spec:
               print("SETUP_OK", doc.name, user.name, len(user.roles), "other_users_promoted:", len(other_users), "smtp:", smtp_doc.name)
 
               PYEOF
-              grep -q '^SETUP_OK' /tmp/console-output.log
+              # bench console is IPython reading from a pipe, so every output
+              # line is prefixed with "In [N]: " -- no line-start anchor here.
+              grep -q 'SETUP_OK' /tmp/console-output.log
