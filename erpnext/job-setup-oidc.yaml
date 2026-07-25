@@ -1,15 +1,15 @@
+# This Job's container spec changes every time the script below changes, and
+# Job specs are immutable -- neither `kubectl apply` nor ArgoCD's
+# Replace=true sync option (which turned out to still be bound by the same
+# immutability rules) can update it in place. So the name is versioned
+# (bump the "-vN" suffix whenever the script changes) instead: a new name is
+# just a plain create, no conflict, and the old Job/name falls out of git so
+# ArgoCD prunes it automatically on the next sync.
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: erpnext-setup-oidc
+  name: erpnext-setup-oidc-v2
   namespace: erpnext
-  annotations:
-    # This Job's container spec changes every time the script below changes,
-    # and Job specs are immutable -- a plain `kubectl apply` would fail on
-    # every edit. Replace=true tells ArgoCD to delete+recreate this specific
-    # resource instead of patching it, so edits just work on the next sync
-    # without us manually deleting the Job by hand.
-    argocd.argoproj.io/sync-options: Replace=true
 spec:
   backoffLimit: 0
   ttlSecondsAfterFinished: 3600
