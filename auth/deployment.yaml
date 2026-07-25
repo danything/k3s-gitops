@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+        - name: auth
+          image: thomseddon/traefik-forward-auth:latest
+          ports:
+            - containerPort: 4181
+          env:
+            - name: SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth-secrets
+                  key: secret
+            - name: PROVIDERS_OIDC_ISSUER_URL
+              value: https://login.microsoftonline.com/22ac977d-b140-4dc8-8150-90d645d3475b/v2.0
+            - name: PROVIDERS_OIDC_CLIENT_ID
+              value: b0fa498f-7e6a-4fe1-a1c6-16fbbb6f397e
+            - name: PROVIDERS_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth-secrets
+                  key: oidc-client-secret
+            - name: DEFAULT_PROVIDER
+              value: oidc
+            - name: COOKIE_DOMAIN
+              value: doany.io
+            - name: AUTH_HOST
+              value: a.doany.io

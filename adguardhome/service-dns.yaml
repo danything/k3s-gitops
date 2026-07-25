@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: adguardhome-dns
+  namespace: adguardhome
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  externalIPs:
+    - 10.10.0.4
+  selector:
+    app: adguardhome
+  ports:
+    - name: dns-udp
+      protocol: UDP
+      port: 53
+      targetPort: 53
+    - name: dns-tcp
+      protocol: TCP
+      port: 53
+      targetPort: 53
+    - name: dot
+      protocol: TCP
+      port: 853
+      targetPort: 853
