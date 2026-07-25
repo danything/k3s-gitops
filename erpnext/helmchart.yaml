@@ -45,9 +45,10 @@ spec:
       # (re)creates the Microsoft Entra ID Social Login Key on every deploy,
       # since ERPNext keeps this in the site DB rather than a mountable
       # config file. Also grants info@doany.io (the designated admin) every
-      # role, and promotes any other self-signed-up account to a normal
+      # role, promotes any other self-signed-up account to a normal
       # operational member (Sales/Purchase/Accounts/Stock User, no manager
-      # or System Manager access). If the DB is ever wiped, this job
+      # or System Manager access), and (re)creates the outgoing SMTP Email
+      # Account (Exchange Online). If the DB is ever wiped, this job
       # recreates all of it from here.
       # NOTE: Job specs are immutable - if you edit the script below,
       # `kubectl delete job erpnext-setup-oidc -n erpnext` before reapplying.
@@ -68,6 +69,11 @@ spec:
                   secretKeyRef:
                     name: erpnext
                     key: oidc-client-secret
+              - name: SMTP_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: erpnext
+                    key: smtp-password
             volumeMounts:
               - name: sites-dir
                 mountPath: /home/frappe/frappe-bench/sites
@@ -142,8 +148,28 @@ spec:
                         u.add_roles(role_name)
                     u.save(ignore_permissions=True)
 
+                # Outgoing mail via Exchange Online SMTP AUTH, using the
+                # info@doany.io mailbox (already a licensed account, and
+                # SMTP AUTH client submission is enabled on it tenant-side).
+                smtp_name = "SMTP Relay"
+                if frappe.db.exists("Email Account", smtp_name):
+                    smtp_doc = frappe.get_doc("Email Account", smtp_name)
+                else:
+                    smtp_doc = frappe.new_doc("Email Account")
+                    smtp_doc.email_account_name = smtp_name
+
+                smtp_doc.email_id = "info@doany.io"
+                smtp_doc.password = os.environ["SMTP_PASSWORD"]
+                smtp_doc.smtp_server = "smtp.office365.com"
+                smtp_doc.smtp_port = "587"
+                smtp_doc.use_tls = 1
+                smtp_doc.enable_outgoing = 1
+                smtp_doc.default_outgoing = 1
+                smtp_doc.always_use_account_email_id_as_sender = 1
+                smtp_doc.save(ignore_permissions=True)
+
                 frappe.db.commit()
-                print("SETUP_OK", doc.name, user.name, len(user.roles), "other_users_promoted:", len(other_users))
+                print("SETUP_OK", doc.name, user.name, len(user.roles), "other_users_promoted:", len(other_users), "smtp:", smtp_doc.name)
 
                 PYEOF
                 true
