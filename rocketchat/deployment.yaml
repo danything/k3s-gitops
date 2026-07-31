@@ -55,6 +55,13 @@ spec:
               value: https://rc.doany.io
             - name: DEPLOY_METHOD
               value: kubernetes
+            # The setup wizard has nothing left to ask -- the admin account is
+            # seeded from the env above -- and its last step (Rocket.Chat
+            # Cloud registration) has no way past it, so the workspace stays
+            # stuck there. Registration can still be done later from
+            # Admin > Subscription.
+            - name: OVERWRITE_SETTING_Show_Setup_Wizard
+              value: completed
 
             # MONGO_PASSWORD is only defined so the two connection strings
             # below can interpolate it -- kubelet expands $(VAR) against env
