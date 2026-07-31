@@ -87,6 +87,32 @@ spec:
                   name: rocketchat
                   key: admin-password
 
+            # Outgoing mail via Exchange Online SMTP AUTH on the same
+            # info@doany.io mailbox erpnext sends from. Without this the
+            # workspace can't send anything -- and since 2FA-over-email is on
+            # by default, protected admin actions just fail with
+            # "totp-canceled" while waiting for a code that never arrives.
+            #
+            # SMTP_IgnoreTLS defaults to true, which would skip the STARTTLS
+            # upgrade Exchange Online requires on 587.
+            - name: OVERWRITE_SETTING_SMTP_Protocol
+              value: smtp
+            - name: OVERWRITE_SETTING_SMTP_Host
+              value: smtp.office365.com
+            - name: OVERWRITE_SETTING_SMTP_Port
+              value: "587"
+            - name: OVERWRITE_SETTING_SMTP_IgnoreTLS
+              value: "false"
+            - name: OVERWRITE_SETTING_SMTP_Username
+              value: info@doany.io
+            - name: OVERWRITE_SETTING_SMTP_Password
+              valueFrom:
+                secretKeyRef:
+                  name: rocketchat
+                  key: smtp-password
+            - name: OVERWRITE_SETTING_From_Email
+              value: info@doany.io
+
             # Custom OAuth against Entra ID (same tenant/app registration as
             # auth/, argocd, erpnext -- the redirect URI to register there is
             # https://rc.doany.io/_oauth/entra, where "entra" is this
