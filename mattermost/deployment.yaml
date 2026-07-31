@@ -125,6 +125,23 @@ spec:
             - name: MM_EMAILSETTINGS_REQUIREEMAILVERIFICATION
               value: "false"
 
+            # Mobile push goes through Mattermost's hosted service (HPNS),
+            # which Entry is allowed to use for 10,000 notifications a month.
+            # Self-hosting a push proxy isn't an alternative here: the
+            # official iOS/Android apps only accept notifications from a proxy
+            # holding the APNs certificate for their bundle id, so it would
+            # mean shipping our own builds of both apps.
+            #
+            # ap is the Japan endpoint the System Console's location dropdown
+            # picks (global geobalances instead). Accepting the HPNS terms is
+            # a click in that same screen and isn't stored in the config, so
+            # it isn't reproduced here -- it's already been accepted on this
+            # workspace.
+            - name: MM_EMAILSETTINGS_SENDPUSHNOTIFICATIONS
+              value: "true"
+            - name: MM_EMAILSETTINGS_PUSHNOTIFICATIONSERVER
+              value: https://ap.push.mattermost.com
+
             # Outgoing mail via Exchange Online SMTP AUTH on the same
             # info@doany.io mailbox erpnext sends from. Only used for
             # notifications and invites now that logins go through Entra.
