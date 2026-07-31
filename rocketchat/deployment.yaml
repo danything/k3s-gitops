@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rocketchat
+  namespace: rocketchat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rocketchat
+  template:
+    metadata:
+      labels:
+        app: rocketchat
+    spec:
+      initContainers:
+        # Rocket.Chat exits (rather than retries) when Mongo isn't reachable
+        # or the replica set isn't initiated yet, which on a first sync means
+        # a CrashLoopBackOff until MongoDB's own bootstrap finishes. Waiting
+        # here keeps that first rollout clean.
+        - name: wait-for-mongodb
+          image: mongo:8.0.28
+          env:
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rocketchat
+                  key: mongodb-root-password
+          command:
+            - bash
+            - -c
+            - |
+              until mongosh "mongodb://root:$MONGO_PASSWORD@mongodb:27017/rocketchat?replicaSet=rs0&authSource=admin" \
+                --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do
+                echo "waiting for the rs0 replica set to accept authenticated connections"
+                sleep 5
+              done
+      containers:
+        - name: rocketchat
+          image: registry.rocket.chat/rocketchat/rocket.chat:8.6.1
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: ROOT_URL
+              value: https://r.doany.io
+            - name: DEPLOY_METHOD
+              value: kubernetes
+
+            # MONGO_PASSWORD is only defined so the two connection strings
+            # below can interpolate it -- kubelet expands $(VAR) against env
+            # entries declared earlier in this list, which keeps the password
+            # itself in exactly one place (the SealedSecret).
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rocketchat
+                  key: mongodb-root-password
+            - name: MONGO_URL
+              value: mongodb://root:$(MONGO_PASSWORD)@mongodb:27017/rocketchat?replicaSet=rs0&authSource=admin
+            - name: MONGO_OPLOG_URL
+              value: mongodb://root:$(MONGO_PASSWORD)@mongodb:27017/local?replicaSet=rs0&authSource=admin
+
+            # Seeds the admin account on the very first boot only (ignored
+            # once any user holds the admin role). info@doany.io matches the
+            # Entra ID account below, and with key_field/merge_users set the
+            # OIDC login lands on this same user instead of creating a
+            # second, non-admin one.
+            - name: ADMIN_USERNAME
+              value: admin
+            - name: ADMIN_EMAIL
+              value: info@doany.io
+            - name: ADMIN_EMAIL_VERIFIED
+              value: "true"
+            - name: ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rocketchat
+                  key: admin-password
+
+            # Custom OAuth against Entra ID (same tenant/app registration as
+            # auth/, argocd, erpnext -- the redirect URI to register there is
+            # https://r.doany.io/_oauth/entra, where "entra" is this
+            # service's name lowercased).
+            #
+            # These env vars only seed the matching Admin > OAuth settings, so
+            # editing them later in the UI wins over what's written here.
+            - name: Accounts_OAuth_Custom_Entra
+              value: "true"
+            - name: Accounts_OAuth_Custom_Entra_url
+              value: https://login.microsoftonline.com/22ac977d-b140-4dc8-8150-90d645d3475b
+            - name: Accounts_OAuth_Custom_Entra_authorize_path
+              value: /oauth2/v2.0/authorize
+            - name: Accounts_OAuth_Custom_Entra_token_path
+              value: /oauth2/v2.0/token
+            # Absolute, unlike the two paths above: with v2.0 scopes the
+            # access token is issued for Microsoft Graph, so the userinfo
+            # endpoint that accepts it is Graph's, not the tenant's.
+            - name: Accounts_OAuth_Custom_Entra_identity_path
+              value: https://graph.microsoft.com/oidc/userinfo
+            - name: Accounts_OAuth_Custom_Entra_scope
+              value: openid profile email
+            - name: Accounts_OAuth_Custom_Entra_token_sent_via
+              value: payload
+            - name: Accounts_OAuth_Custom_Entra_identity_token_sent_via
+              value: header
+            - name: Accounts_OAuth_Custom_Entra_id
+              value: b0fa498f-7e6a-4fe1-a1c6-16fbbb6f397e
+            - name: Accounts_OAuth_Custom_Entra_secret
+              valueFrom:
+                secretKeyRef:
+                  name: rocketchat
+                  key: oidc-client-secret
+            - name: Accounts_OAuth_Custom_Entra_login_style
+              value: redirect
+            - name: Accounts_OAuth_Custom_Entra_button_label_text
+              value: Microsoft Entra ID
+            - name: Accounts_OAuth_Custom_Entra_key_field
+              value: email
+            - name: Accounts_OAuth_Custom_Entra_email_field
+              value: email
+            - name: Accounts_OAuth_Custom_Entra_name_field
+              value: name
+            - name: Accounts_OAuth_Custom_Entra_merge_users
+              value: "true"
+            - name: Accounts_OAuth_Custom_Entra_show_button
+              value: "true"
+          # Rocket.Chat takes a while to come up, so the slow first start is
+          # absorbed by the startup probe rather than by a long liveness
+          # initialDelay (which would also delay restarts later on).
+          startupProbe:
+            httpGet:
+              path: /api/info
+              port: 3000
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/info
+              port: 3000
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /api/info
+              port: 3000
+            periodSeconds: 30
+            failureThreshold: 5

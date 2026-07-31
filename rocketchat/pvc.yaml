@@ -1,0 +1,16 @@
+# Only MongoDB is backed by a volume: Rocket.Chat keeps uploads in GridFS
+# (its default storage type), so the app pod itself is stateless.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-data
+  namespace: rocketchat
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path-retain
+  resources:
+    requests:
+      storage: 20Gi

@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rocketchat
+  namespace: rocketchat
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls.certresolver: mydnschallenge
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - r.doany.io
+  rules:
+    - host: r.doany.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rocketchat
+                port:
+                  number: 3000
