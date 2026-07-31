@@ -45,6 +45,14 @@ spec:
               value: "3000"
             - name: ROOT_URL
               value: https://rc.doany.io
+            # Site_Url is seeded from ROOT_URL on the first boot and then
+            # lives in the database, so it doesn't follow a later ROOT_URL
+            # change on its own -- and a stale one breaks the OAuth redirect
+            # and every generated link. OVERWRITE_SETTING_ re-applies it on
+            # every start (and makes it read-only in the admin UI, which is
+            # what we want for something git owns).
+            - name: OVERWRITE_SETTING_Site_Url
+              value: https://rc.doany.io
             - name: DEPLOY_METHOD
               value: kubernetes
 
