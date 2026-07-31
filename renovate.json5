@@ -1,0 +1,44 @@
+// .json5 rather than .json on purpose: the gitops ArgoCD Application syncs
+// this repo with directory.recurse, which treats every .yaml/.yml/.json file
+// it walks as a manifest -- including one under .github/. A renovate.json
+// here fails to unmarshal and takes the whole Application down with a
+// ComparisonError, which blocks every app in the repo, not just this file.
+// .json5 isn't a manifest extension, so ArgoCD skips it and Renovate still
+// reads it.
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "github>5ym/renovate-config"
+    ],
+    // The kubernetes manager ships no default file patterns, so without this
+    // the plain manifests here are never even scanned for image tags.
+    "kubernetes": {
+        "managerFilePatterns": [
+            "**/*.yaml"
+        ]
+    },
+    // k3s's HelmChart CRD isn't a format Renovate knows, so erpnext's chart
+    // version is matched by hand, off the chart/repo/version trio in the
+    // order the CRD writes them.
+    "customManagers": [
+        {
+            "customType": "regex",
+            "managerFilePatterns": [
+                "**/helmchart.yaml"
+            ],
+            "matchStrings": [
+                "chart:\\s*(?<depName>\\S+)\\s*\\n\\s*repo:\\s*(?<registryUrl>\\S+)\\s*\\n\\s*version:\\s*(?<currentValue>\\S+)"
+            ],
+            "datasourceTemplate": "helm"
+        }
+    ],
+    "packageRules": [
+        {
+            "description": "svelte-check needs TypeScript 6 and 7 installed side by side, and reads the 7 half through the @typescript/native alias. Bumping this entry to 7 leaves no 6 to pair with, which stops `bun run check` from starting at all. Hold it back until svelte-check drops the dual requirement.",
+            "matchDepNames": [
+                "typescript"
+            ],
+            "allowedVersions": "<7"
+        }
+    ]
+}
