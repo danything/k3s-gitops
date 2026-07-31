@@ -44,7 +44,7 @@ spec:
             - name: PORT
               value: "3000"
             - name: ROOT_URL
-              value: https://k.doany.io
+              value: https://rc.doany.io
             - name: DEPLOY_METHOD
               value: kubernetes
 
@@ -81,7 +81,7 @@ spec:
 
             # Custom OAuth against Entra ID (same tenant/app registration as
             # auth/, argocd, erpnext -- the redirect URI to register there is
-            # https://k.doany.io/_oauth/entra, where "entra" is this
+            # https://rc.doany.io/_oauth/entra, where "entra" is this
             # service's name lowercased).
             #
             # These env vars only seed the matching Admin > OAuth settings, so
