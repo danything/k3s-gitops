@@ -5,10 +5,16 @@ metadata:
   namespace: kube-system
 spec:
   chart: oci://ghcr.io/danything/charts/mosp
-  version: 0.1.0
+  version: 0.1.1
   targetNamespace: mosp
   createNamespace: true
   values:
+    # The image tag stays at latest (MosP itself only moves about once a
+    # year, and helm-mosp's workflow re-points latest), so a re-created Pod
+    # has to re-pull instead of reusing whatever the node cached.
+    image:
+      pullPolicy: Always
+
     ingress:
       enabled: true
       host: mp.doany.io
