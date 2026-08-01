@@ -1,0 +1,24 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: mosp
+  namespace: kube-system
+spec:
+  chart: oci://ghcr.io/danything/charts/mosp
+  version: 0.1.0
+  targetNamespace: mosp
+  createNamespace: true
+  values:
+    ingress:
+      enabled: true
+      host: mp.doany.io
+      certResolver: mydnschallenge
+
+    persistence:
+      storageClassName: local-path-retain
+
+    # Externally-managed via SealedSecret (see mosp-secrets-sealed.yaml) so
+    # the password survives even if this release ever gets uninstalled and
+    # reinstalled by the helm-controller.
+    postgresql:
+      existingSecret: mosp-secrets
