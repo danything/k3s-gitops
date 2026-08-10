@@ -1,0 +1,170 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wg-easy-data
+  namespace: wireguard
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path-retain
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wg-easy
+  namespace: wireguard
+spec:
+  replicas: 1
+  # hostNetworkでUDP 51820を占有するため、ローリング更新だと新旧Podが
+  # ポート衝突する。RWOのPVCを共有できない事情も同じ。
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wg-easy
+  template:
+    metadata:
+      labels:
+        app: wg-easy
+    spec:
+      # クライアント向けの経路とNATをホスト側で成立させる必要があるため
+      # hostNetworkで動かす。
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: wg-easy
+          image: ghcr.io/wg-easy/wg-easy:15
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - |
+                    sleep 8
+                    # wg-easyはDockerブリッジ前提で "-o eth0" のMASQUERADEを入れる。
+                    # hostNetworkでは実際の上流が bond0 なのでNATが一切効かず、
+                    # クライアントはホスト自身(10.0.0.2)やDNSには届くのに
+                    # インターネットには出られない状態になる。
+                    # 既定経路のインターフェースを実際に引いて正しいNATを足す。
+                    IF=$(ip -4 route show default | awk '{print $5; exit}')
+                    [ -n "$IF" ] || IF=bond0
+                    iptables -t nat -C POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE 2>/dev/null || \
+                      iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE
+
+                    IF6=$(ip -6 route show default | awk '{print $5; exit}')
+                    [ -n "$IF6" ] || IF6="$IF"
+                    ip6tables -t nat -C POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE 2>/dev/null || \
+                      ip6tables -t nat -A POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE
+
+                    # トンネルMTU 1420に合わせてMSSを固定する(v4=1420-40, v6=1420-60)。
+                    # PMTU探索が黒穴になる経路でも大きいTCPが刺さらないようにする。
+                    iptables -t mangle -C FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1380 2>/dev/null || \
+                      iptables -t mangle -A FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1380
+                    ip6tables -t mangle -C FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1360 2>/dev/null || \
+                      ip6tables -t mangle -A FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1360
+          env:
+            # hostNetworkでは既定の0.0.0.0だとWeb UIがグローバルIPに直接露出する。
+            # ノードのLAN IPに限定し、公開はTraefik経由に統一する。
+            - name: HOST
+              value: "10.0.0.2"
+            - name: PORT
+              value: "51821"
+            # TLSはTraefikで終端し、バックエンドとは平文で通信する
+            - name: INSECURE
+              value: "true"
+            # 初回起動時の無人セットアップ。v15.3.0のcliは依存が正しく
+            # バンドルされておらず(upstream #2682)使えないため、公式の
+            # INIT_*方式で管理者を作成する。セットアップ完了後は無視される。
+            # パスワードのみSecret参照(このリポジトリはpublicのため)。
+            - name: INIT_ENABLED
+              value: "true"
+            - name: INIT_USERNAME
+              value: "wgeasyadmin"
+            - name: INIT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wg-easy-init
+                  key: INIT_PASSWORD
+            - name: INIT_HOST
+              value: "v.doany.io"
+            - name: INIT_PORT
+              value: "51820"
+            - name: INIT_DNS
+              value: "10.42.0.1"
+            - name: INIT_IPV4_CIDR
+              value: "10.8.0.0/24"
+            - name: INIT_IPV6_CIDR
+              value: "fdcc:ad94:bacf:61a3::/64"
+            # フルトンネル
+            - name: INIT_ALLOWED_IPS
+              value: "0.0.0.0/0,::/0"
+          ports:
+            - name: wireguard
+              containerPort: 51820
+              protocol: UDP
+            - name: http
+              containerPort: 51821
+              protocol: TCP
+          securityContext:
+            # wireguardモジュールのロードとiptables操作に必要
+            privileged: true
+          volumeMounts:
+            - name: config
+              mountPath: /etc/wireguard
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: wg-easy-data
+        - name: modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wg-easy
+  namespace: wireguard
+spec:
+  selector:
+    app: wg-easy
+  ports:
+    - name: http
+      port: 51821
+      targetPort: 51821
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wg-easy
+  namespace: wireguard
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls.certresolver: mydnschallenge
+    # oauth2-proxy側でadminグループ(5847ec59-...)に限定済み。
+    # errorsを外側に置き、forwardAuthが返す401を302サインインへ書き換える。
+    traefik.ingress.kubernetes.io/router.middlewares: auth-forward-auth-errors@kubernetescrd,auth-forward-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: wg.doany.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wg-easy
+                port:
+                  number: 51821
+  tls:
+    - hosts:
+        - wg.doany.io
