@@ -47,6 +47,32 @@ spec:
             # TLSはTraefikで終端し、バックエンドとは平文で通信する
             - name: INSECURE
               value: "true"
+            # 初回起動時の無人セットアップ。v15.3.0のcliは依存が正しく
+            # バンドルされておらず(upstream #2682)使えないため、公式の
+            # INIT_*方式で管理者を作成する。セットアップ完了後は無視される。
+            # パスワードだけはSecret参照(このリポジトリはpublicのため)。
+            - name: INIT_ENABLED
+              value: "true"
+            - name: INIT_USERNAME
+              value: "wgeasyadmin"
+            - name: INIT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wg-easy-init
+                  key: INIT_PASSWORD
+            - name: INIT_HOST
+              value: "v.doany.io"
+            - name: INIT_PORT
+              value: "51820"
+            - name: INIT_DNS
+              value: "10.42.0.1"
+            - name: INIT_IPV4_CIDR
+              value: "10.8.0.0/24"
+            - name: INIT_IPV6_CIDR
+              value: "fdcc:ad94:bacf:61a3::/64"
+            # フルトンネル指定
+            - name: INIT_ALLOWED_IPS
+              value: "0.0.0.0/0,::/0"
           ports:
             - name: wireguard
               containerPort: 51820
