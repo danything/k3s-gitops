@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wg-easy-data
+  namespace: vpn
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path-retain
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wg-easy
+  namespace: vpn
+spec:
+  replicas: 1
+  # hostNetworkでUDP 51820を占有するため、ローリング更新だと新旧Podが
+  # ポート衝突して起動できない。RWOのPVCを共有できない事情も同じ。
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wg-easy
+  template:
+    metadata:
+      labels:
+        app: wg-easy
+    spec:
+      # クライアントへ払い出す経路とNATをホスト側で成立させる必要があるため
+      # hostNetworkで動かす(既存のikev2 Podと同じ方式)。
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: wg-easy
+          image: ghcr.io/wg-easy/wg-easy:15
+          env:
+            # hostNetworkでは既定の0.0.0.0だとWeb UIがグローバルIPにも
+            # 直接露出する。ノードのLAN IPに限定し、公開はTraefik経由に統一する。
+            - name: HOST
+              value: "10.0.0.2"
+            - name: PORT
+              value: "51821"
+            # TLSはTraefikで終端し、バックエンドとは平文で通信する
+            - name: INSECURE
+              value: "true"
+          ports:
+            - name: wireguard
+              containerPort: 51820
+              protocol: UDP
+            - name: http
+              containerPort: 51821
+              protocol: TCP
+          securityContext:
+            # wireguardモジュールのロードとiptables操作に必要
+            privileged: true
+          volumeMounts:
+            - name: config
+              mountPath: /etc/wireguard
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: wg-easy-data
+        - name: modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wg-easy
+  namespace: vpn
+spec:
+  selector:
+    app: wg-easy
+  ports:
+    - name: http
+      port: 51821
+      targetPort: 51821
+      protocol: TCP
