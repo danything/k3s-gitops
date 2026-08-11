@@ -125,6 +125,30 @@ spec:
             # フルトンネル
             - name: INIT_ALLOWED_IPS
               value: "0.0.0.0/0,::/0"
+            # Entra ID(Microsoft Entra)によるOIDCログイン。
+            # 誰がクライアント鍵を発行したかを残すため、共有アカウントではなく
+            # ユーザーごとのアカウントでログインさせる。
+            # wg-easy自体にはグループ判定機能が無いので、adminsグループ限定は
+            # Entra側の「割り当てが必要=はい」+ グループ割り当てで担保している。
+            - name: OAUTH_PROVIDERS
+              value: "oidc"
+            - name: OAUTH_OIDC_NAME
+              value: "Entra ID"
+            - name: OAUTH_OIDC_SERVER
+              value: "https://login.microsoftonline.com/22ac977d-b140-4dc8-8150-90d645d3475b/v2.0"
+            - name: OAUTH_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: wg-easy-oidc
+                  key: OAUTH_OIDC_CLIENT_ID
+            - name: OAUTH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wg-easy-oidc
+                  key: OAUTH_OIDC_CLIENT_SECRET
+            # Entra側で既にadminsグループに絞られているため自動登録して良い
+            - name: OAUTH_AUTO_REGISTER
+              value: "true"
           ports:
             - name: wireguard
               containerPort: 51820
