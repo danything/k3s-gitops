@@ -137,8 +137,11 @@ spec:
             # ユーザーごとのアカウントでログインさせる。
             # wg-easy自体にはグループ判定機能が無いので、adminsグループ限定は
             # Entra側の「割り当てが必要=はい」+ グループ割り当てで担保している。
+            # Entra は userinfo に email_verified を返さないため wg-easy の
+            # OIDC は必ず401になる。上流が修正されるまで無効にしておく。
+            # 有効化するときは値を "oidc" に戻すだけでよい。
             - name: OAUTH_PROVIDERS
-              value: "oidc"
+              value: ""
             - name: OAUTH_OIDC_NAME
               value: "Entra ID"
             - name: OAUTH_OIDC_SERVER
@@ -203,13 +206,16 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls.certresolver: mydnschallenge
-    # forward-auth(oauth2-proxy)は意図的に付けていない。
-    # wg-easy自身がEntra IDでOIDC認証するため二重のOAuth層になり、
-    # oauth2-proxy側のセッション更新が走るとrdパラメータで
-    # 消費済みの /api/auth/oidc/callback?code=... へブラウザを差し戻し、
-    # AADSTS54005 (code already redeemed) で必ず失敗する。
-    # adminsグループ限定はEntraアプリの appRoleAssignmentRequired +
-    # グループ割り当てで担保しているため、前段の認可は不要。
+    # adminsグループ(5847ec59-...)限定をここで担保する。
+    # errorsを外側に置き、forwardAuthが返す401を302サインインへ書き換える。
+    #
+    # 本来は wg-easy 自身のOIDCで認証させたかったが、Entraとは組み合わせられない。
+    # wg-easyは userinfo 応答に email_verified が含まれることを必須としており
+    # (src/server/utils/oauth.ts の assertHasOauthProps)、Entraの userinfo は
+    # sub/name/family_name/given_name/picture/email しか返さず、しかも公式に
+    # 「追加・カスタマイズ不可」と明記されている。よって必ず401になる。
+    # OIDC仕様上 email_verified は OPTIONAL なので wg-easy 側の実装が厳しすぎる。
+    traefik.ingress.kubernetes.io/router.middlewares: auth-forward-auth-errors@kubernetescrd,auth-forward-auth@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
