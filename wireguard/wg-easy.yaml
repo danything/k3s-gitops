@@ -62,10 +62,9 @@ spec:
                     IPT=$(command -v iptables-nft || echo iptables)
                     IPT6=$(command -v ip6tables-nft || echo ip6tables)
 
-                    IF=$(ip -4 route show default | awk '{print $5; exit}')
-                    [ -n "$IF" ] || IF=bond0
-                    IF6=$(ip -6 route show default | awk '{print $5; exit}')
-                    [ -n "$IF6" ] || IF6="$IF"
+                    # 出口インターフェースは決め打ちしない。デフォルト経路(bond0)だけを
+                    # 対象にすると、別NICに繋がる社内LAN(eno4 = 10.10.0.0/24)宛が
+                    # NATされず戻ってこない。wg0以外への出口をすべて対象にする。
 
                     # 3) k3s(kube-router netpol + flannel)は nft の FORWARD チェーンを
                     #    末尾の無条件DROPで閉じている。10.8.0.0/24 はどのACCEPTにも
@@ -81,10 +80,10 @@ spec:
                     "$IPT6" -C FORWARD -o wg0 -j ACCEPT 2>/dev/null || \
                       "$IPT6" -I FORWARD 1 -o wg0 -j ACCEPT
 
-                    "$IPT" -t nat -C POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE 2>/dev/null || \
-                      "$IPT" -t nat -A POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE
-                    "$IPT6" -t nat -C POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE 2>/dev/null || \
-                      "$IPT6" -t nat -A POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE
+                    "$IPT" -t nat -C POSTROUTING -s 10.8.0.0/24 ! -o wg0 -j MASQUERADE 2>/dev/null || \
+                      "$IPT" -t nat -A POSTROUTING -s 10.8.0.0/24 ! -o wg0 -j MASQUERADE
+                    "$IPT6" -t nat -C POSTROUTING -s fdcc:ad94:bacf:61a3::/64 ! -o wg0 -j MASQUERADE 2>/dev/null || \
+                      "$IPT6" -t nat -A POSTROUTING -s fdcc:ad94:bacf:61a3::/64 ! -o wg0 -j MASQUERADE
 
                     # トンネルMTU 1420に合わせてMSSを固定する(v4=1420-40, v6=1420-60)。
                     # PMTU探索が黒穴になる経路でも大きいTCPが刺さらないようにする。
