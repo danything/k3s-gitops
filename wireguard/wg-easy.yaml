@@ -206,16 +206,14 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls.certresolver: mydnschallenge
-    # adminsグループ(5847ec59-...)限定をここで担保する。
-    # errorsを外側に置き、forwardAuthが返す401を302サインインへ書き換える。
+    # forward-auth(oauth2-proxy)は利用者の判断で外している。
+    # 認証は wg-easy 自身のパスワードログインのみ。
     #
-    # 本来は wg-easy 自身のOIDCで認証させたかったが、Entraとは組み合わせられない。
-    # wg-easyは userinfo 応答に email_verified が含まれることを必須としており
+    # 参考: wg-easy のネイティブOIDCは Entra とは組み合わせられない。
+    # userinfo 応答に email_verified が含まれることを必須としているが
     # (src/server/utils/oauth.ts の assertHasOauthProps)、Entraの userinfo は
     # sub/name/family_name/given_name/picture/email しか返さず、しかも公式に
-    # 「追加・カスタマイズ不可」と明記されている。よって必ず401になる。
-    # OIDC仕様上 email_verified は OPTIONAL なので wg-easy 側の実装が厳しすぎる。
-    traefik.ingress.kubernetes.io/router.middlewares: auth-forward-auth-errors@kubernetescrd,auth-forward-auth@kubernetescrd
+    # 「追加・カスタマイズ不可」と明記されているため必ず401になる。
 spec:
   ingressClassName: traefik
   rules:
