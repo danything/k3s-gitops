@@ -45,27 +45,36 @@ spec:
                   - -c
                   - |
                     sleep 8
-                    # wg-easyはDockerブリッジ前提で "-o eth0" のMASQUERADEを入れる。
-                    # hostNetworkでは実際の上流が bond0 なのでNATが一切効かず、
-                    # クライアントはホスト自身(10.0.0.2)やDNSには届くのに
-                    # インターネットには出られない状態になる。
-                    # 既定経路のインターフェースを実際に引いて正しいNATを足す。
+                    # NATが効かない原因が2つ重なるため、両方を明示的に潰す。
+                    #
+                    # 1) wg-easyはDockerブリッジ前提で "-o eth0" のMASQUERADEを入れるが、
+                    #    hostNetworkでは実際の上流が bond0 なので一致しない。
+                    # 2) このイメージの既定 iptables は legacy バックエンドだが、
+                    #    ホストの nat フックは nf_tables 側(k3s/flannel/CNI)が握っている。
+                    #    legacy の nat テーブルは評価されないため MASQUERADE が無効になる。
+                    #    一方 legacy の filter は生きており転送だけは成立するので、
+                    #    「トンネルは繋がるがIPv4だけ外に出られない」という紛らわしい形になる。
+                    #
+                    # よって nft バックエンドのバイナリを明示し、既定経路のIFを実際に引く。
+                    IPT=$(command -v iptables-nft || echo iptables)
+                    IPT6=$(command -v ip6tables-nft || echo ip6tables)
+
                     IF=$(ip -4 route show default | awk '{print $5; exit}')
                     [ -n "$IF" ] || IF=bond0
-                    iptables -t nat -C POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE 2>/dev/null || \
-                      iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE
-
                     IF6=$(ip -6 route show default | awk '{print $5; exit}')
                     [ -n "$IF6" ] || IF6="$IF"
-                    ip6tables -t nat -C POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE 2>/dev/null || \
-                      ip6tables -t nat -A POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE
+
+                    "$IPT" -t nat -C POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE 2>/dev/null || \
+                      "$IPT" -t nat -A POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE
+                    "$IPT6" -t nat -C POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE 2>/dev/null || \
+                      "$IPT6" -t nat -A POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE
 
                     # トンネルMTU 1420に合わせてMSSを固定する(v4=1420-40, v6=1420-60)。
                     # PMTU探索が黒穴になる経路でも大きいTCPが刺さらないようにする。
-                    iptables -t mangle -C FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1380 2>/dev/null || \
-                      iptables -t mangle -A FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1380
-                    ip6tables -t mangle -C FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1360 2>/dev/null || \
-                      ip6tables -t mangle -A FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1360
+                    "$IPT" -t mangle -C FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1380 2>/dev/null || \
+                      "$IPT" -t mangle -A FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1380
+                    "$IPT6" -t mangle -C FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1360 2>/dev/null || \
+                      "$IPT6" -t mangle -A FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1360
           env:
             # hostNetworkでは既定の0.0.0.0だとWeb UIがグローバルIPに直接露出する。
             # ノードのLAN IPに限定し、公開はTraefik経由に統一する。
