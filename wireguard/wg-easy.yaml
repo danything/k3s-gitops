@@ -203,9 +203,13 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls.certresolver: mydnschallenge
-    # oauth2-proxy側でadminグループ(5847ec59-...)に限定済み。
-    # errorsを外側に置き、forwardAuthが返す401を302サインインへ書き換える。
-    traefik.ingress.kubernetes.io/router.middlewares: auth-forward-auth-errors@kubernetescrd,auth-forward-auth@kubernetescrd
+    # forward-auth(oauth2-proxy)は意図的に付けていない。
+    # wg-easy自身がEntra IDでOIDC認証するため二重のOAuth層になり、
+    # oauth2-proxy側のセッション更新が走るとrdパラメータで
+    # 消費済みの /api/auth/oidc/callback?code=... へブラウザを差し戻し、
+    # AADSTS54005 (code already redeemed) で必ず失敗する。
+    # adminsグループ限定はEntraアプリの appRoleAssignmentRequired +
+    # グループ割り当てで担保しているため、前段の認可は不要。
 spec:
   ingressClassName: traefik
   rules:
