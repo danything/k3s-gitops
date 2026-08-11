@@ -64,6 +64,20 @@ spec:
                     IF6=$(ip -6 route show default | awk '{print $5; exit}')
                     [ -n "$IF6" ] || IF6="$IF"
 
+                    # 3) k3s(kube-router netpol + flannel)は nft の FORWARD チェーンを
+                    #    末尾の無条件DROPで閉じている。10.8.0.0/24 はどのACCEPTにも
+                    #    該当しないためそこで落ちる。wg-easyが入れる "-i wg0 -j ACCEPT" は
+                    #    legacy側なのでこのチェーンには効かない。先頭に明示的に挿入する。
+                    #    (既存のikev2も同様に 192.168.43.0/24 を明示ACCEPTして成立している)
+                    "$IPT" -C FORWARD -i wg0 -j ACCEPT 2>/dev/null || \
+                      "$IPT" -I FORWARD 1 -i wg0 -j ACCEPT
+                    "$IPT" -C FORWARD -o wg0 -j ACCEPT 2>/dev/null || \
+                      "$IPT" -I FORWARD 1 -o wg0 -j ACCEPT
+                    "$IPT6" -C FORWARD -i wg0 -j ACCEPT 2>/dev/null || \
+                      "$IPT6" -I FORWARD 1 -i wg0 -j ACCEPT
+                    "$IPT6" -C FORWARD -o wg0 -j ACCEPT 2>/dev/null || \
+                      "$IPT6" -I FORWARD 1 -o wg0 -j ACCEPT
+
                     "$IPT" -t nat -C POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE 2>/dev/null || \
                       "$IPT" -t nat -A POSTROUTING -s 10.8.0.0/24 -o "$IF" -j MASQUERADE
                     "$IPT6" -t nat -C POSTROUTING -s fdcc:ad94:bacf:61a3::/64 -o "$IF6" -j MASQUERADE 2>/dev/null || \
