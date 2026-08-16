@@ -32,6 +32,16 @@ spec:
     spec:
       # クライアント向けの経路とNATをホスト側で成立させる必要があるため
       # hostNetworkで動かす。
+      #
+      # ホスト側の前提: Ubuntu の apparmor 5.x が同梱する
+      # /etc/apparmor.d/wg-quick (profile wg-quick /usr/bin/wg-quick) は
+      # privileged/unconfined な Pod 内でもパス一致で exec 時に付与され、
+      # Alpine の readlink(-> /bin/busybox) の実行を拒否して wg-quick up が
+      # 失敗する(wg0 が上がらず VPN 不通、Pod は Running のまま)。
+      # ホストで無効化しておくこと:
+      #   sudo mkdir -p /etc/apparmor.d/disable
+      #   sudo ln -sf /etc/apparmor.d/wg-quick /etc/apparmor.d/disable/wg-quick
+      #   sudo apparmor_parser -R /etc/apparmor.d/wg-quick
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       containers:
