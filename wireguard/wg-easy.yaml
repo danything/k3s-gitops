@@ -36,10 +36,8 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: wg-easy
-          # OIDC(OAUTH_*)は v15.4.0-beta 以降にしか無い。安定版の 15.3.0 には
-          # src/server/utils/oauth.ts 自体が存在せず、環境変数は無視される。
-          # v15.4 が正式リリースされたら :15 に戻すこと。
-          image: ghcr.io/wg-easy/wg-easy:15.4.0-beta.2
+          # v15.4.0(2026-08-14)で OIDC(OAUTH_*)と cli 修正(#2683)が安定版に入った。
+          image: ghcr.io/wg-easy/wg-easy:15
           lifecycle:
             postStart:
               exec:
@@ -106,9 +104,10 @@ spec:
             # Entra が AADSTS50011 (redirect URI mismatch) で拒否する。
             - name: INSECURE
               value: "false"
-            # 初回起動時の無人セットアップ。v15.3.0のcliは依存が正しく
-            # バンドルされておらず(upstream #2682)使えないため、公式の
-            # INIT_*方式で管理者を作成する。セットアップ完了後は無視される。
+            # 初回起動時の無人セットアップ。公式の INIT_* 方式で管理者を作成する。
+            # (v15.3.0 では cli が壊れていて(upstream #2682)これしか手が無かった。
+            # v15.4.0 で修正済みだが、宣言的に書けるこちらを維持する)
+            # セットアップ完了後は無視される。
             # パスワードのみSecret参照(このリポジトリはpublicのため)。
             - name: INIT_ENABLED
               value: "true"
@@ -138,7 +137,9 @@ spec:
             # wg-easy自体にはグループ判定機能が無いので、adminsグループ限定は
             # Entra側の「割り当てが必要=はい」+ グループ割り当てで担保している。
             # Entra は userinfo に email_verified を返さないため wg-easy の
-            # OIDC は必ず401になる。上流が修正されるまで無効にしておく。
+            # OIDC は必ず401になる。v15.4.0 でも assertHasOauthProps は
+            # email_verified 必須のまま(upstream #2741 でオプション化を要望中)。
+            # 上流が修正されるまで無効にしておく。
             # 有効化するときは値を "oidc" に戻すだけでよい。
             - name: OAUTH_PROVIDERS
               value: ""
