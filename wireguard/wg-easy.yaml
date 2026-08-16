@@ -37,7 +37,10 @@ spec:
       containers:
         - name: wg-easy
           # v15.4.0(2026-08-14)で OIDC(OAUTH_*)と cli 修正(#2683)が安定版に入った。
-          image: ghcr.io/wg-easy/wg-easy:15
+          # :15 のような浮動タグはノードに残った古いキャッシュ(15.3.0)が
+          # IfNotPresent で使われ、新しいDBスキーマを読めず /api/client が
+          # 500になった。パッチまで固定し、更新は Renovate に任せる。
+          image: ghcr.io/wg-easy/wg-easy:15.4.0
           lifecycle:
             postStart:
               exec:
