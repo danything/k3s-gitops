@@ -105,6 +105,15 @@ spec:
           env:
             # hostNetworkでは既定の0.0.0.0だとWeb UIがグローバルIPに直接露出する。
             # ノードのLAN IPに限定し、公開はTraefik経由に統一する。
+            #
+            # ただしLAN IPに絞っても、ルータがWANのtcp/51821を10.0.0.2へ
+            # 転送しているぶんは外から直接叩けてしまう (実測で到達を確認)。
+            # バインド先はTraefikがServiceのエンドポイントとして叩く必要が
+            # あるので変えられないため、ホスト側で私設アドレス以外からの
+            # tcp/51821 をdropしている:
+            #   /etc/nftables.d/wg-easy-guard.nft + wg-easy-guard.service
+            # 独立したnftテーブルなのでk3s/kube-routerのrulesetには触れない。
+            # ルータ側の転送ルールを消せば、このガードは不要になる。
             - name: HOST
               value: "10.0.0.2"
             - name: PORT
