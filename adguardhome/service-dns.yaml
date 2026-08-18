@@ -5,6 +5,13 @@ metadata:
   namespace: adguardhome
 spec:
   type: LoadBalancer
+  # Dual-stack: without this the Service is IPv4-only, yet the CNI still
+  # installs hostPort DNAT rules for v6 :53 -- so IPv6 queries reach the
+  # svclb pod and are dropped there (klipper-lb only gets SRC_RANGES for v4).
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies:
+    - IPv4
+    - IPv6
   externalTrafficPolicy: Local
   externalIPs:
     - 10.10.0.4
