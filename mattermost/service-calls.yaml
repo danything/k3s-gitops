@@ -24,6 +24,14 @@ metadata:
   namespace: mattermost
 spec:
   type: LoadBalancer
+  # Dual-stack: the CNI installs hostPort DNAT rules for v6 8443 regardless of
+  # this, so leaving the Service IPv4-only means IPv6 clients reach the svclb
+  # pod and get dropped there -- the plugin advertises a v6 ICE candidate that
+  # then has to time out before the client falls back to v4.
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies:
+    - IPv4
+    - IPv6
   externalTrafficPolicy: Local
   externalIPs:
     - 10.10.0.4
