@@ -34,6 +34,22 @@ spec:
     # chart has no mariadb-sts branch for DB_ROOT_USER, falls back to this
     dbRootUser: root
 
+    # Dragonfly sizes one io_uring ring per proactor thread and defaults to
+    # one thread per CPU -- 44 here, ~98KB of ring per thread, so ~4.3MB of
+    # locked memory per instance. io_uring accounts that against the uid's
+    # RLIMIT_MEMLOCK, which is 8MiB for containers under the k3s unit and is
+    # shared across processes, so whichever of cache/queue starts second ran
+    # out of it and SIGSEGV'd in a crash loop (taking the workers, scheduler
+    # and socketio down with it). Four threads is plenty for ERPNext's cache
+    # and job queue and keeps both instances well inside the limit.
+    dragonfly-cache:
+      extraArgs:
+        - "--proactor_threads=4"
+
+    dragonfly-queue:
+      extraArgs:
+        - "--proactor_threads=4"
+
     jobs:
       createSite:
         enabled: true
