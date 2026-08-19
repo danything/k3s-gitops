@@ -37,7 +37,7 @@ spec:
     jobs:
       createSite:
         enabled: true
-        siteName: n.doany.io
+        siteName: en.doany.io
         adminExistingSecret: erpnext
         adminExistingSecretKey: admin-password
 

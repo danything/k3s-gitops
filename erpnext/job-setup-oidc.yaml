@@ -8,7 +8,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: erpnext-setup-oidc-v2
+  name: erpnext-setup-oidc-v3
   namespace: erpnext
 spec:
   backoffLimit: 0
@@ -42,17 +42,17 @@ spec:
             - -c
             - |
               export start=`date +%s`
-              until [ -f sites/n.doany.io/site_config.json ]; do
-                echo "waiting for n.doany.io site to be created"
+              until [ -f sites/en.doany.io/site_config.json ]; do
+                echo "waiting for en.doany.io site to be created"
                 sleep 10
                 if (( `date +%s`-start > 900 )); then
                   echo "timed out waiting for site"
                   exit 1
                 fi
               done
-              bench --site n.doany.io set-config host_name https://n.doany.io
+              bench --site en.doany.io set-config host_name https://en.doany.io
               wait-for-it -t 120 erpnext-mariadb-sts:3306
-              bench --site n.doany.io console <<'PYEOF' | tee /tmp/console-output.log
+              bench --site en.doany.io console <<'PYEOF' | tee /tmp/console-output.log
               import os
               frappe.set_user("Administrator")
 

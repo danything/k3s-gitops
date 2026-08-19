@@ -10,9 +10,9 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - n.doany.io
+        - en.doany.io
   rules:
-    - host: n.doany.io
+    - host: en.doany.io
       http:
         paths:
           - path: /
