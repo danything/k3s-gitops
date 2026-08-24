@@ -13,14 +13,15 @@ spec:
     cloudflare:
       existingSecret: cloudflare-ddns-secrets
 
-    # Every ingress host that points at this house, DNS-only and proxied
-    # alike -- proxied records still carry an origin IP that must track us.
+    # Every ingress host with real A/AAAA records here. l/ts/w/x are CNAMEs
+    # to doany.io in Cloudflare (the API refuses A/AAAA next to a CNAME), so
+    # they follow automatically and must not be listed.
     domains: >-
-      doany.io,a.doany.io,ak.doany.io,c.doany.io,d.doany.io,en.doany.io,l.doany.io,mm.doany.io,n.doany.io,p.doany.io,ts.doany.io,w.doany.io,wg.doany.io,x.doany.io
+      doany.io,a.doany.io,ak.doany.io,c.doany.io,d.doany.io,en.doany.io,mm.doany.io,n.doany.io,p.doany.io,wg.doany.io
 
-    # Which of those stay behind the Cloudflare proxy (matches the state
-    # observed in DNS on 2026-08-24); the rest resolve directly to us.
-    proxied: "is(doany.io) || is(l.doany.io) || is(ts.doany.io) || is(w.doany.io) || is(x.doany.io)"
+    # Only the apex stays behind the Cloudflare proxy; the subdomains
+    # resolve directly to us.
+    proxied: "is(doany.io)"
 
     # AAAA should be bond0's static ::2 (also the k3s node IP), not whatever
     # source address an outbound probe happens to pick. This provider reads
