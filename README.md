@@ -14,9 +14,9 @@ k3s クラスタ上のセルフホストアプリを [Argo CD](https://argo-cd.r
 | ディレクトリ | 内容 |
 | --- | --- |
 | [`adguardhome/`](adguardhome/) | AdGuard Home (DNS フィルタ) |
+| [`cloudflare-ddns/`](cloudflare-ddns/) | DDNS |
 | [`erpnext/`](erpnext/) | ERPNext (Helm chart + OIDC セットアップ) |
 | [`mattermost/`](mattermost/) | Mattermost + PostgreSQL |
-| [`opengist/`](opengist/) | Opengist (スニペット共有) |
 | [`portainer/`](portainer/) | Portainer |
 | [`wireguard/`](wireguard/) | wg-easy (WireGuard VPN) |
 
