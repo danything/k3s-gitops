@@ -19,6 +19,7 @@ k3s クラスタ上のセルフホストアプリを [Argo CD](https://argo-cd.r
 | [`mattermost/`](mattermost/) | Mattermost + PostgreSQL |
 | [`portainer/`](portainer/) | Portainer |
 | [`wireguard/`](wireguard/) | wg-easy (WireGuard VPN) |
+| [`3proxy/`](3proxy/) | 3proxy (国内IP経由の HTTPS フォワードプロキシ) |
 
 ## Secret
 

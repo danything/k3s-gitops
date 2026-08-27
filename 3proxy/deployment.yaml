@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 3proxy
+  namespace: 3proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: 3proxy
+  template:
+    metadata:
+      labels:
+        app: 3proxy
+    spec:
+      containers:
+        - name: 3proxy
+          image: ghcr.io/3proxy/3proxy:1.0.0
+          env:
+            - name: TZ
+              value: Asia/Tokyo
+          ports:
+            - name: proxy
+              containerPort: 3128
+          volumeMounts:
+            - name: config
+              mountPath: /etc/3proxy/3proxy.cfg
+              subPath: 3proxy.cfg
+              readOnly: true
+            - name: secret
+              mountPath: /etc/3proxy/secret
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: config
+          configMap:
+            name: 3proxy
+        - name: secret
+          secret:
+            secretName: 3proxy

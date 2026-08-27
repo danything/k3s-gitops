@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: 3proxy
+  namespace: 3proxy
+data:
+  3proxy.cfg: |
+    # ログは標準出力へ（kubectl logs で見る）
+    log
+    logformat "- +_L%t %U %C:%c %R:%r %O %I %T"
+    maxconn 64
+    timeouts 1 5 30 60 180 1800 15 60
+
+    # 認証情報だけ Secret から読む
+    include /etc/3proxy/secret/users.cfg
+
+    auth strong
+    # 許可するのは対象2サイトへの CONNECT だけ。
+    # 認証情報が漏れても踏み台にはならない。
+    allow * * ichi-estate.com,souzokutochi-kokkokizoku.com 443 HTTPS
+    deny * * * *
+
+    # TLS は Traefik が終端するので、ここは平文で待ち受ける
+    proxy -n -i0.0.0.0 -p3128
