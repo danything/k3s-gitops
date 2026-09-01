@@ -1,9 +1,9 @@
 name: Reseal mattermost secrets
 
-# 平文の値は GitHub Secrets 側にだけ置く。danything/bootstrap/.github/actions/kubeseal
-# が、そこに同梱の公開鍵証明書(pub-cert.pem)で kubeseal し、結果の SealedSecret だけを
-# コミットする。値を変えたら Secrets を更新してこのワークフローを再実行する
-# (経緯は danything/bootstrap の README 参照)。
+# 平文の値は GitHub Secrets 側にだけ置く。pub-cert.pem (sealed-secrets
+# コントローラーの公開鍵、非秘密なのでコミット済み) で kubeseal し、結果の
+# SealedSecret だけをコミットする。値を変えたら Secrets を更新してこの
+# ワークフローを再実行する。鍵のローテーションは bootstrap/fetch-cert.sh 参照。
 #
 # このリポジトリは複数アプリの Secret を持つので、キー名は MATTERMOST_ プレフィックス。
 on:
@@ -19,17 +19,39 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Seal mattermost
-        uses: danything/bootstrap/.github/actions/kubeseal@main
-        with:
-          namespace: mattermost
-          name: mattermost
-          output-file: mattermost/mattermost-secrets-sealed.yaml
-          data: |
+        env:
+          SEAL_DATA: |
             {
               "oidc-client-secret": ${{ toJSON(secrets.MATTERMOST_OIDC_CLIENT_SECRET) }},
               "postgres-password": ${{ toJSON(secrets.MATTERMOST_POSTGRES_PASSWORD) }},
               "smtp-password": ${{ toJSON(secrets.MATTERMOST_SMTP_PASSWORD) }}
             }
+        run: |
+          set -eu
+          WORKDIR="$(mktemp -d)"
+          trap 'rm -rf "$WORKDIR"' EXIT
+
+          if ! command -v kubeseal >/dev/null 2>&1; then
+            curl -sfL -o "$WORKDIR/kubeseal.tar.gz" \
+              "https://github.com/bitnami/sealed-secrets/releases/download/v0.38.4/kubeseal-0.38.4-linux-amd64.tar.gz"
+            tar -xzf "$WORKDIR/kubeseal.tar.gz" -C "$WORKDIR" kubeseal
+            sudo install -m 0755 "$WORKDIR/kubeseal" /usr/local/bin/kubeseal
+          fi
+
+          python3 - "$WORKDIR/plain.yaml" <<'PYEOF'
+          import base64, json, os, sys
+          data = json.loads(os.environ["SEAL_DATA"])
+          with open(sys.argv[1], "w") as f:
+              f.write("apiVersion: v1\nkind: Secret\nmetadata:\n")
+              f.write("  name: mattermost\n  namespace: mattermost\n")
+              f.write("type: Opaque\ndata:\n")
+              for key, value in data.items():
+                  b64 = base64.b64encode(value.encode()).decode()
+                  f.write(f"  {json.dumps(key)}: {b64}\n")
+          PYEOF
+
+          kubeseal --cert pub-cert.pem --format yaml \
+            < "$WORKDIR/plain.yaml" > mattermost/mattermost-secrets-sealed.yaml
 
       - name: Commit and push
         run: |
