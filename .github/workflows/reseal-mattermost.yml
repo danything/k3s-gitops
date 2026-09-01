@@ -1,0 +1,46 @@
+name: Reseal mattermost secrets
+
+# 平文の値は GitHub Secrets 側にだけ置く。ここでは org 変数 SEALED_SECRETS_CERT
+# (公開鍵、danything/bootstrap/fetch-cert.sh で取得・保存) で kubeseal し、
+# 結果の SealedSecret だけをコミットする。値を変えたら Secrets を更新して
+# このワークフローを再実行する (経緯は danything/bootstrap の README 参照)。
+#
+# このリポジトリは複数アプリの Secret を持つので、キー名は MATTERMOST_ プレフィックス。
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  reseal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Seal mattermost
+        uses: danything/bootstrap/.github/actions/kubeseal@main
+        with:
+          cert: ${{ vars.SEALED_SECRETS_CERT }}
+          namespace: mattermost
+          name: mattermost
+          output-file: mattermost/mattermost-secrets-sealed.yaml
+          data: |
+            {
+              "oidc-client-secret": ${{ toJSON(secrets.MATTERMOST_OIDC_CLIENT_SECRET) }},
+              "postgres-password": ${{ toJSON(secrets.MATTERMOST_POSTGRES_PASSWORD) }},
+              "smtp-password": ${{ toJSON(secrets.MATTERMOST_SMTP_PASSWORD) }}
+            }
+
+      - name: Commit and push
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add mattermost/mattermost-secrets-sealed.yaml
+          if git diff --cached --quiet; then
+            echo "no changes"
+            exit 0
+          fi
+          git commit -m "chore: reseal mattermost"
+          git push
