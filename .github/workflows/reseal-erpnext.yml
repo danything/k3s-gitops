@@ -1,9 +1,9 @@
 name: Reseal erpnext secrets
 
-# 平文の値は GitHub Secrets 側にだけ置く。ここでは org 変数 SEALED_SECRETS_CERT
-# (公開鍵、danything/bootstrap/fetch-cert.sh で取得・保存) で kubeseal し、
-# 結果の SealedSecret だけをコミットする。値を変えたら Secrets を更新して
-# このワークフローを再実行する (経緯は danything/bootstrap の README 参照)。
+# 平文の値は GitHub Secrets 側にだけ置く。danything/bootstrap/.github/actions/kubeseal
+# が、そこに同梱の公開鍵証明書(pub-cert.pem)で kubeseal し、結果の SealedSecret だけを
+# コミットする。値を変えたら Secrets を更新してこのワークフローを再実行する
+# (経緯は danything/bootstrap の README 参照)。
 #
 # このリポジトリは複数アプリの Secret を持つので、キー名は ERPNEXT_ プレフィックス。
 on:
@@ -21,7 +21,6 @@ jobs:
       - name: Seal erpnext
         uses: danything/bootstrap/.github/actions/kubeseal@main
         with:
-          cert: ${{ vars.SEALED_SECRETS_CERT }}
           namespace: erpnext
           name: erpnext
           output-file: erpnext/erpnext-secrets-sealed.yaml
