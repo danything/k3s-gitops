@@ -26,7 +26,7 @@ k3s クラスタ上のセルフホストアプリを [Argo CD](https://argo-cd.r
 各アプリの `*-secrets-sealed.yaml` は [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) で暗号化済み。
 平文の Secret はコミットしない。
 
-値を変えるときは、直接編集せず GitHub Secrets (`ERPNEXT_*` / `MATTERMOST_*` / `OPENGIST_*`) を更新して、
+値を変えるときは、直接編集せず GitHub Secrets (`ERPNEXT_*` / `MATTERMOST_*`) を更新して、
 対応する `.github/workflows/reseal-<app>.yml` を Actions から `workflow_dispatch` で実行する。
 `danything` org の Actions variable `SEALED_SECRETS_CERT`(公開鍵、クラスタへの問い合わせ不要)で
 kubeseal し、結果をこのリポジトリへコミットする。詳しくは `danything/bootstrap` の README。
