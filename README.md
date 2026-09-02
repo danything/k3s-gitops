@@ -23,8 +23,8 @@ k3s クラスタ上のセルフホストアプリを [Argo CD](https://argo-cd.r
 
 ## Secret
 
-各アプリの `*-secrets.yaml` は [Infisical 純正 operator](https://infisical.com/docs/integrations/platforms/kubernetes/overview) の `InfisicalSecret`
-（2026-09 に ESO から移行）。値は Infisical（https://il.doany.io、`danything/bootstrap` の README 参照）のフォルダ
+各アプリの `*-secrets.yaml` は [Infisical 純正 operator](https://infisical.com/docs/integrations/platforms/kubernetes/overview) の `InfisicalSecret`。
+値は Infisical（https://il.doany.io、`danything/bootstrap` の README 参照）のフォルダ
 `/<namespace>/<Secret 名>`（例: `/erpnext/erpnext`、`/mattermost/mattermost`）にあり、
 シークレット名がそのまま Secret のキーになる。平文の Secret も暗号化した Secret もコミットしない。
 
