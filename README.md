@@ -23,10 +23,11 @@ k3s クラスタ上のセルフホストアプリを [Argo CD](https://argo-cd.r
 
 ## Secret
 
-各アプリの `*-secrets-sealed.yaml` は [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) で暗号化済み。
-平文の Secret はコミットしない。
+各アプリの `*-secrets.yaml` は [External Secrets Operator](https://external-secrets.io) の `ExternalSecret`。
+値は Infisical（https://il.doany.io、`danything/bootstrap` の README 参照）のフォルダ
+`/<namespace>/<Secret 名>`（例: `/erpnext/erpnext`、`/mattermost/mattermost`）にあり、
+シークレット名がそのまま Secret のキーになる。平文の Secret も暗号化した Secret もコミットしない。
 
-値を変えるときは、直接編集せず GitHub Secrets (`ERPNEXT_*` / `MATTERMOST_*`) を更新して、
-対応する `.github/workflows/reseal-<app>.yml` を Actions から `workflow_dispatch` で実行する。
-`danything` org の Actions variable `SEALED_SECRETS_CERT`(公開鍵、クラスタへの問い合わせ不要)で
-kubeseal し、結果をこのリポジトリへコミットする。詳しくは `danything/bootstrap` の README。
+値を変えるときは Infisical の UI で書き換えるだけ。ESO が 1 時間ごとに取り直す（急ぐなら
+`kubectl -n <ns> annotate externalsecret <name> force-sync=$(date +%s) --overwrite`）。
+環境変数で読んでいるアプリ（mattermost など）は `kubectl rollout restart` で入れ替える。

@@ -8,8 +8,8 @@ spec:
   version: 0.1.0
   targetNamespace: cloudflare-ddns
   values:
-    # API token comes from the SealedSecret-managed Secret
-    # (cloudflare-ddns-secrets-sealed.yaml), key CLOUDFLARE_API_TOKEN.
+    # API token comes from the ExternalSecret-managed Secret
+    # (cloudflare-ddns-secrets.yaml, value in Infisical), key CLOUDFLARE_API_TOKEN.
     cloudflare:
       existingSecret: cloudflare-ddns-secrets
 

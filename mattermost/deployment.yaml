@@ -52,7 +52,7 @@ spec:
             # POSTGRES_PASSWORD is only defined so the two DSNs below can
             # interpolate it -- kubelet expands $(VAR) against env entries
             # declared earlier in this list, which keeps the password itself
-            # in exactly one place (the SealedSecret).
+            # in exactly one place (the Secret external-secrets builds from Infisical).
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

@@ -22,9 +22,9 @@ spec:
     # rootPassword explicitly emptied (not omitted -- an omitted key falls
     # back to the chart's own default "changeit", which re-enables the
     # chart's auto-created Secret and collides with our externally-managed
-    # one). Empty disables that Secret template, so the SealedSecret-managed
-    # Secret of the same name/key (erpnext-secrets-sealed.yaml) provides it
-    # instead.
+    # one). Empty disables that Secret template, so the ExternalSecret-managed
+    # Secret of the same name/key (erpnext-secrets.yaml, values in Infisical)
+    # provides it instead.
     mariadb-sts:
       enabled: true
       rootPassword: ""
