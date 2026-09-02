@@ -23,11 +23,11 @@ k3s クラスタ上のセルフホストアプリを [Argo CD](https://argo-cd.r
 
 ## Secret
 
-各アプリの `*-secrets.yaml` は [External Secrets Operator](https://external-secrets.io) の `ExternalSecret`。
-値は Infisical（https://il.doany.io、`danything/bootstrap` の README 参照）のフォルダ
+各アプリの `*-secrets.yaml` は [Infisical 純正 operator](https://infisical.com/docs/integrations/platforms/kubernetes/overview) の `InfisicalSecret`
+（2026-09 に ESO から移行）。値は Infisical（https://il.doany.io、`danything/bootstrap` の README 参照）のフォルダ
 `/<namespace>/<Secret 名>`（例: `/erpnext/erpnext`、`/mattermost/mattermost`）にあり、
 シークレット名がそのまま Secret のキーになる。平文の Secret も暗号化した Secret もコミットしない。
 
-値を変えるときは Infisical の UI で書き換えるだけ。ESO が 1 時間ごとに取り直す（急ぐなら
-`kubectl -n <ns> annotate externalsecret <name> force-sync=$(date +%s) --overwrite`）。
-環境変数で読んでいるアプリ（mattermost など）は `kubectl rollout restart` で入れ替える。
+値を変えるときは Infisical の UI で書き換えるだけ。operator が 60 秒ごとに取り直し、
+Deployment に `secrets.infisical.com/auto-reload: "true"` の注釈があれば **Pod も自動で入れ替わる**
+（mattermost・blog 等は注釈済み。無いもの＝Helm チャート系は従来どおり `kubectl rollout restart`）。

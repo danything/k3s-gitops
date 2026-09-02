@@ -3,6 +3,9 @@ kind: Deployment
 metadata:
   name: mattermost
   namespace: mattermost
+  annotations:
+    # 参照している Secret を Infisical operator が同期したら、自動でローリング再起動する
+    secrets.infisical.com/auto-reload: "true"
 spec:
   replicas: 1
   # /mattermost/data is ReadWriteOnce, same as postgres above.
