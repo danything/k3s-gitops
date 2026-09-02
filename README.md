@@ -28,6 +28,6 @@ k3s クラスタ上のセルフホストアプリを [Argo CD](https://argo-cd.r
 `/<namespace>/<Secret 名>`（例: `/erpnext/erpnext`、`/mattermost/mattermost`）にあり、
 シークレット名がそのまま Secret のキーになる。平文の Secret も暗号化した Secret もコミットしない。
 
-値を変えるときは Infisical の UI で書き換えるだけ。operator が 60 秒ごとに取り直し、
+値を変えるときは Infisical の UI で書き換えるだけ。push-bridge が数秒で同期させ（保険で5分ごとのポーリングもある）、
 Deployment に `secrets.infisical.com/auto-reload: "true"` の注釈があれば **Pod も自動で入れ替わる**
 （mattermost・blog 等は注釈済み。無いもの＝Helm チャート系は従来どおり `kubectl rollout restart`）。
